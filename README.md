@@ -3,6 +3,8 @@ by vibe coding
 
 I made it to make a detailed network architecture figure for the research paper.
 
+<img src="nng_app/assets/capture.png" alt="drawing"/>
+
 A desktop app for designing neural-network architectures as node graphs, drawing them cleanly like a paper overview figure, and exporting them as `torch.nn` code.
 
 - Place layer, activation and operator blocks and connect them. The input→output axis is laid out as one straight top-to-bottom line.
