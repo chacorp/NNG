@@ -96,7 +96,7 @@ function render_menus(){
     button.addEventListener('dragstart', event => event.dataTransfer.setData('text/plain', JSON.stringify({type: node_type})));
     menu_bar.appendChild(button);
   });
-  const layer_menu = add_menu('layer', '레이어');
+  const layer_menu = add_menu('layer', 'Layers');
   [['Linear Layers', ['Linear']], ['Convolution Layers', ['Conv2d']], ['Pooling Layers', ['MaxPool2d', 'AdaptiveAvgPool2d']],
    ['Normalization Layers', ['BatchNorm2d', 'LayerNorm']], ['Dropout Layers', ['Dropout']], ['Vision Layers', ['Upsample']], ['Utilities', ['Flatten']]]
     .forEach(([section_label, layer_types]) => {
@@ -111,7 +111,7 @@ function render_menus(){
   activation_menu.appendChild(make_palette_item('Attention', make_box_icon('custom'), add_attention_block, null));
   add_section(activation_menu, 'Non-linear Activations (other)');
   add_activation_item('Softmax');
-  const operator_menu = add_menu('operator', '연산자');
+  const operator_menu = add_menu('operator', 'Operators');
   Object.entries(OPERATOR_SPECS).forEach(([operator_type, operator_spec]) =>
     operator_menu.appendChild(make_palette_item(operator_spec.label, make_operator_icon(operator_spec.symbol), () => add_node_at_view_center(operator_type), {type: operator_type})));
 }

@@ -66,15 +66,15 @@ function load_state(saved_state){
  */
 function open_graph_json(json_text){
   try{ load_state(JSON.parse(json_text)); render_all(); fit_view(); }
-  catch(error){ alert('JSON을 읽을 수 없어요: ' + error); }
+  catch(error){ alert('Could not read the JSON: ' + error); }
 }
 
 document.querySelectorAll('[data-example]').forEach(example_button => example_button.onclick = () => {
-  if(state.main.nodes.length && !confirm('현재 그래프를 예제로 바꿀까요?')) return;
+  if(state.main.nodes.length && !confirm('Replace the current graph with the example?')) return;
   load_example(example_button.dataset.example);
 });
 document.getElementById('clear_button').onclick = () => {
-  if(!confirm('그래프와 커스텀 블록을 모두 지울까요?')) return;
+  if(!confirm('Clear the graph and all custom blocks?')) return;
   load_state({});
   render_all();
   fit_view();
@@ -99,9 +99,9 @@ document.getElementById('save_png_button').onclick = save_figure_png;
 document.getElementById('torch_check_button').onclick = run_torch_check;
 document.getElementById('copy_button').onclick = async () => {
   const copy_button = document.getElementById('copy_button');
-  try{ await navigator.clipboard.writeText(current_model_code); copy_button.textContent = '복사됨'; }
-  catch{ copy_button.textContent = '복사 실패'; }
-  setTimeout(() => copy_button.textContent = '복사', 1200);
+  try{ await navigator.clipboard.writeText(current_model_code); copy_button.textContent = 'Copied'; }
+  catch{ copy_button.textContent = 'Copy failed'; }
+  setTimeout(() => copy_button.textContent = 'Copy', 1200);
 };
 document.getElementById('save_python_button').onclick = () => current_model_code && save_file('model.py', current_model_code, 'text/x-python');
 window.addEventListener('nngbridgeready', () => { document.getElementById('torch_check_button').style.display = ''; });

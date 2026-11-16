@@ -34,9 +34,9 @@ function shapes_equal(first_shape, second_shape){
  */
 function parse_shape_text(shape_text){
   const parts = String(shape_text).replace(/[\[\]()\s]/g, '').split(/[,×x*]/).filter(Boolean);
-  if(!parts.length) throw 'shape를 입력하세요';
+  if(!parts.length) throw 'Enter a shape';
   const shape = parts.map(Number);
-  if(shape.some(size => !Number.isInteger(size) || size < 1)) throw `잘못된 shape: ${shape_text}`;
+  if(shape.some(size => !Number.isInteger(size) || size < 1)) throw `Invalid shape: ${shape_text}`;
   return shape;
 }
 
@@ -70,6 +70,7 @@ function topological_order(graph){
   return ordered_ids;
 }
 
+const UPSTREAM_ERROR = 'Upstream node has an error';
 let block_call_input_shapes = {};
 
 /**
@@ -81,20 +82,20 @@ let block_call_input_shapes = {};
  */
 function infer_block_call(block_name, input_shapes, call_stack){
   const block_graph = state.blocks[block_name];
-  if(!block_graph) throw `블록 '${block_name}' 정의 없음`;
-  if(call_stack.includes(block_name)) throw `블록 재귀 참조 (${[...call_stack, block_name].join(' → ')})`;
+  if(!block_graph) throw `Block '${block_name}' is not defined`;
+  if(call_stack.includes(block_name)) throw `Block uses itself (${[...call_stack, block_name].join(' → ')})`;
   const {input_nodes, output_nodes} = block_ports(block_graph);
-  if(output_nodes.length !== 1) throw `블록 '${block_name}'에는 Output이 정확히 1개 필요`;
-  if(!input_nodes.length) throw `블록 '${block_name}'에 Input이 없음`;
+  if(output_nodes.length !== 1) throw `Block '${block_name}' needs exactly one Output`;
+  if(!input_nodes.length) throw `Block '${block_name}' has no Input`;
   if(!block_call_input_shapes[block_name]) block_call_input_shapes[block_name] = input_shapes;
   const input_shape_overrides = {};
   input_nodes.forEach((input_node, input_index) => input_shape_overrides[input_node.id] = input_shapes[input_index]);
   const block_inference = infer_shapes(block_graph, input_shape_overrides, [...call_stack, block_name]);
   if(!block_inference.shapes[output_nodes[0].id]){
-    const first_error = Object.entries(block_inference.errors).find(([, message]) => message !== '상위 노드 오류');
+    const first_error = Object.entries(block_inference.errors).find(([, message]) => message !== UPSTREAM_ERROR);
     const error_node = first_error && find_node(block_graph, +first_error[0]);
-    const error_label = error_node ? `${error_node.type in OPERATOR_SPECS ? OPERATOR_SPECS[error_node.type].label : node_title(error_node)}: ${first_error[1]}` : '오류';
-    throw `블록 '${block_name}' 내부 ${error_label}`;
+    const error_label = error_node ? `${error_node.type in OPERATOR_SPECS ? OPERATOR_SPECS[error_node.type].label : node_title(error_node)}: ${first_error[1]}` : 'error';
+    throw `Inside block '${block_name}': ${error_label}`;
   }
   return block_inference.shapes[output_nodes[0].id];
 }
@@ -108,14 +109,14 @@ function infer_block_call(block_name, input_shapes, call_stack){
 function reshape_output_shape(input_shape, target_text){
   const target_sizes = String(target_text).split(',').map(part => part.trim()).filter(Boolean).map(Number);
   if(!target_sizes.length || target_sizes.some(size => !Number.isInteger(size) || (size < 1 && size !== -1)) || target_sizes.filter(size => size === -1).length > 1)
-    throw `잘못된 reshape 크기: ${target_text}`;
+    throw `Invalid reshape sizes: ${target_text}`;
   const total_size = input_shape.reduce((product, size) => product * size, 1);
   const known_size = target_sizes.filter(size => size !== -1).reduce((product, size) => product * size, 1);
   if(target_sizes.includes(-1)){
-    if(total_size % known_size) throw `${format_shape(input_shape)}을 (${target_text})로 reshape 불가`;
+    if(total_size % known_size) throw `Cannot reshape ${format_shape(input_shape)} to (${target_text})`;
     return target_sizes.map(size => size === -1 ? total_size / known_size : size);
   }
-  if(known_size !== total_size) throw `${format_shape(input_shape)}을 (${target_text})로 reshape 불가`;
+  if(known_size !== total_size) throw `Cannot reshape ${format_shape(input_shape)} to (${target_text})`;
   return target_sizes;
 }
 
@@ -133,48 +134,48 @@ function operator_output_shape(operator_node, input_shapes, divides_by_constant)
     case 'Div': if(divides_by_constant) return first_shape;
     // falls through: element-wise with a second tensor
     case 'Add': case 'Sub': case 'Hadamard':
-      input_shapes.forEach(shape => { if(!shapes_equal(shape, first_shape)) throw `shape 불일치 ${format_shape(first_shape)} vs ${format_shape(shape)}`; });
+      input_shapes.forEach(shape => { if(!shapes_equal(shape, first_shape)) throw `Shape mismatch ${format_shape(first_shape)} vs ${format_shape(shape)}`; });
       return first_shape;
     case 'MatMul': {
       const left_shape = first_shape, right_input = input_shapes[1];
       const right_shape = params.transpose_b && right_input && right_input.length >= 2 ? [...right_input.slice(0, -2), right_input.at(-1), right_input.at(-2)] : right_input;
-      if(left_shape.length < 2 || right_shape.length < 2) throw `행렬곱은 [.., n, k] × [.., k, m] 필요 (${format_shape(left_shape)} × ${format_shape(right_shape)})`;
-      if(left_shape.length !== right_shape.length || !shapes_equal(left_shape.slice(0, -2), right_shape.slice(0, -2))) throw `앞쪽 차원 불일치 ${format_shape(left_shape)} × ${format_shape(right_shape)}`;
-      if(left_shape[left_shape.length - 1] !== right_shape[right_shape.length - 2]) throw `내적 차원 불일치 ${format_shape(left_shape)} × ${format_shape(right_shape)}`;
+      if(left_shape.length < 2 || right_shape.length < 2) throw `Matrix multiply needs [.., n, k] × [.., k, m] (got ${format_shape(left_shape)} × ${format_shape(right_shape)})`;
+      if(left_shape.length !== right_shape.length || !shapes_equal(left_shape.slice(0, -2), right_shape.slice(0, -2))) throw `Leading dims differ: ${format_shape(left_shape)} × ${format_shape(right_shape)}`;
+      if(left_shape[left_shape.length - 1] !== right_shape[right_shape.length - 2]) throw `Inner dims differ: ${format_shape(left_shape)} × ${format_shape(right_shape)}`;
       return [...left_shape.slice(0, -1), right_shape[right_shape.length - 1]];
     }
     case 'CausalMask':
-      if(first_shape.length < 2) throw '마스크는 [.., T, S] 형태 필요';
+      if(first_shape.length < 2) throw 'The mask input must be shaped [.., T, S]';
       return first_shape;
     case 'Reshape': return reshape_output_shape(first_shape, params.to);
     case 'Permute': {
       const rank = first_shape.length, dim_order = String(params.order).split(',').map(part => Number(part.trim()));
       if(dim_order.length !== rank + 1 || dim_order[0] !== 0 || [...dim_order].sort((a, b) => a - b).some((dim, position) => dim !== position))
-        throw `permute 순서는 0으로 시작하는 0..${rank} 순열이어야 함 (현재 ${params.order})`;
+        throw `permute order must be a permutation of 0..${rank} starting with 0 (got ${params.order})`;
       return dim_order.slice(1).map(dim => first_shape[dim - 1]);
     }
     case 'Transpose': {
       const rank = first_shape.length, to_positive = dim => dim < 0 ? dim + rank + 1 : dim;
       const first_dim = to_positive(params.dim0), second_dim = to_positive(params.dim1);
-      if(first_dim < 1 || second_dim < 1 || first_dim > rank || second_dim > rank) throw 'transpose dim 범위 밖 (배치 dim 0은 불가)';
+      if(first_dim < 1 || second_dim < 1 || first_dim > rank || second_dim > rank) throw 'transpose dim out of range (the batch dim 0 cannot move)';
       const output_shape = [...first_shape];
       [output_shape[first_dim - 1], output_shape[second_dim - 1]] = [output_shape[second_dim - 1], output_shape[first_dim - 1]];
       return output_shape;
     }
     case 'Concat': {
       const rank = first_shape.length, concat_dim = params.dim;
-      if(concat_dim === 0) throw 'dim=0(배치)에는 concat 불가';
+      if(concat_dim === 0) throw 'Cannot concat along dim 0 (batch)';
       const dim_index = concat_dim < 0 ? rank + concat_dim : concat_dim - 1;
-      if(dim_index < 0 || dim_index >= rank) throw `dim ${concat_dim} 범위 밖`;
+      if(dim_index < 0 || dim_index >= rank) throw `dim ${concat_dim} is out of range`;
       input_shapes.forEach(shape => {
-        if(shape.length !== rank || shape.some((size, index) => index !== dim_index && size !== first_shape[index])) throw `concat shape 불일치 ${format_shape(first_shape)} vs ${format_shape(shape)}`;
+        if(shape.length !== rank || shape.some((size, index) => index !== dim_index && size !== first_shape[index])) throw `Concat shape mismatch ${format_shape(first_shape)} vs ${format_shape(shape)}`;
       });
       const output_shape = [...first_shape];
       output_shape[dim_index] = input_shapes.reduce((total, shape) => total + shape[dim_index], 0);
       return output_shape;
     }
   }
-  throw `알 수 없는 연산자 ${operator_node.type}`;
+  throw `Unknown operator ${operator_node.type}`;
 }
 
 /**
@@ -186,18 +187,18 @@ function operator_output_shape(operator_node, input_shapes, divides_by_constant)
  */
 function infer_shapes(graph, input_shape_overrides = {}, call_stack = []){
   const shapes = {}, errors = {}, ordered_ids = topological_order(graph);
-  graph.nodes.forEach(node => { if(!ordered_ids.includes(node.id)) errors[node.id] = '순환 연결'; });
+  graph.nodes.forEach(node => { if(!ordered_ids.includes(node.id)) errors[node.id] = 'Cycle in the graph'; });
   for(const node_id of ordered_ids){
     const node = find_node(graph, node_id), params = node.params;
     try{
       const source_ids = input_sources(graph, node);
-      if(is_variadic_operator(node) && source_ids.length < 2) throw '입력 2개 이상 연결 필요';
+      if(is_variadic_operator(node) && source_ids.length < 2) throw 'Connect two or more inputs';
       const divides_by_constant = node.type === 'Div' && is_valid_divisor_text(params.by);
-      if(divides_by_constant && source_ids.length !== 1) throw '상수로 나눌 때는 입력 1개만 연결';
+      if(divides_by_constant && source_ids.length !== 1) throw 'Connect only one input when dividing by a constant';
       if(node.type in OPERATOR_SPECS && !is_variadic_operator(node) && !divides_by_constant && source_ids.length !== OPERATOR_SPECS[node.type].input_count)
-        throw `입력 ${OPERATOR_SPECS[node.type].input_count}개 필요 (현재 ${source_ids.length}개)`;
-      if(source_ids.some(source_id => source_id === null)) throw '입력 미연결';
-      if(source_ids.some(source_id => !shapes[source_id])) throw '상위 노드 오류';
+        throw `Needs ${OPERATOR_SPECS[node.type].input_count} inputs (has ${source_ids.length})`;
+      if(source_ids.some(source_id => source_id === null)) throw 'Input not connected';
+      if(source_ids.some(source_id => !shapes[source_id])) throw UPSTREAM_ERROR;
       const input_shapes = source_ids.map(source_id => shapes[source_id]);
       let output_shape;
       if(node.type === 'Input'){
@@ -205,7 +206,7 @@ function infer_shapes(graph, input_shape_overrides = {}, call_stack = []){
         else {
           output_shape = parse_shape_text(params.shape);
           const dim_names = input_dim_names(node);
-          if(dim_names.length !== output_shape.length) throw `차원 이름 ${dim_names.length}개(${layout_text(dim_names)})와 크기 ${output_shape.length}개가 맞지 않음`;
+          if(dim_names.length !== output_shape.length) throw `${dim_names.length} dim names (${layout_text(dim_names)}) but ${output_shape.length} sizes`;
         }
       }
       else if(node.type === 'Output') output_shape = input_shapes[0];

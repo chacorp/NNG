@@ -106,7 +106,7 @@ class ViewerBridge(QObject):
         Returns:
             str: JSON {"path": str, "text": str}, or JSON null when the dialog was cancelled.
         """
-        chosen_path, _ = QFileDialog.getOpenFileName(self._main_window, "그래프 열기", "", FILE_TYPE_FILTERS["json"])
+        chosen_path, _ = QFileDialog.getOpenFileName(self._main_window, "Open graph", "", FILE_TYPE_FILTERS["json"])
         if not chosen_path:
             return json.dumps(None)
         graph_path = pathlib.Path(chosen_path)
@@ -137,7 +137,7 @@ class ViewerBridge(QObject):
             pathlib.Path | None: chosen path, or None when cancelled.
         """
         chosen_path, _ = QFileDialog.getSaveFileName(
-            self._main_window, "저장", suggested_file_name, FILE_TYPE_FILTERS[file_kind]
+            self._main_window, "Save", suggested_file_name, FILE_TYPE_FILTERS[file_kind]
         )
         return pathlib.Path(chosen_path) if chosen_path else None
 

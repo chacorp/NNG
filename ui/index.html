@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,17 +9,17 @@
 <body>
 <div id="top_bar">
   <h1>NN Graph Builder</h1>
-  <div class="menu"><button class="mb">파일</button><div class="dd">
-    <button data-example="mlp">예제: Custom MLP</button><button data-example="resnet">예제: ResNet</button><button data-example="unet">예제: U-Net</button><button data-example="transformer">예제: Transformer</button>
-    <button id="clear_button">초기화</button><button id="save_json_button">JSON 저장</button><button id="open_json_button">JSON 열기</button>
+  <div class="menu"><button class="mb">File</button><div class="dd">
+    <button data-example="mlp">Example: Custom MLP</button><button data-example="resnet">Example: ResNet</button><button data-example="unet">Example: U-Net</button><button data-example="transformer">Example: Transformer</button>
+    <button id="clear_button">Clear</button><button id="save_json_button">Save JSON</button><button id="open_json_button">Open JSON</button>
   </div></div>
   <input type="file" id="file_input" accept=".json" style="display:none">
   <span class="vsep"></span>
   <div id="menu_bar"></div>
   <span class="sp" style="flex:1"></span>
-  <button id="auto_layout_button">자동 정렬</button>
-  <button id="fit_button">화면 맞춤</button>
-  <div class="menu right"><button class="mb">그림 저장</button><div class="dd"><button id="save_svg_button">SVG</button><button id="save_png_button">PNG</button></div></div>
+  <button id="auto_layout_button">Auto layout</button>
+  <button id="fit_button">Fit view</button>
+  <div class="menu right"><button class="mb">Save figure</button><div class="dd"><button id="save_svg_button">SVG</button><button id="save_png_button">PNG</button></div></div>
 </div>
 
 <div id="center_area">
@@ -40,7 +40,7 @@
 </div>
 
 <div id="side_panel">
-  <div class="row"><h2>torch.nn 코드</h2><button id="torch_check_button" style="display:none">torch 검증</button><button id="copy_button">복사</button><button id="save_python_button" class="primary">model.py 저장</button></div>
+  <div class="row"><h2>torch.nn code</h2><button id="torch_check_button" style="display:none">Check with torch</button><button id="copy_button">Copy</button><button id="save_python_button" class="primary">Save model.py</button></div>
   <pre id="torch_result" style="display:none"></pre>
   <div id="problem_list"></div>
   <pre id="code_view"></pre>

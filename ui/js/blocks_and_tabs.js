@@ -16,7 +16,7 @@ function render_tabs(){
       const close_button = document.createElement('button');
       close_button.className = 'x';
       close_button.textContent = '×';
-      close_button.title = '탭 닫기';
+      close_button.title = 'Close tab';
       close_button.onclick = event => { event.stopPropagation(); close_tab(tab_key); };
       tab_element.appendChild(close_button);
     }
@@ -93,9 +93,9 @@ function close_tab(tab_key){
  * @returns {string|null} error message, or null when the name is fine
  */
 function block_name_error(new_name, old_name){
-  if(!/^[A-Za-z_][A-Za-z0-9_]*$/.test(new_name)) return '이름은 영문/숫자/_ 로, 숫자로 시작할 수 없어요.';
-  if(['Model', 'nn', 'torch', 'custom_function', 'main'].includes(new_name)) return '예약된 이름입니다.';
-  if(new_name !== old_name && state.blocks[new_name]) return '같은 이름의 블록이 이미 있어요.';
+  if(!/^[A-Za-z_][A-Za-z0-9_]*$/.test(new_name)) return 'Use letters, digits and _ only, not starting with a digit.';
+  if(['Model', 'nn', 'torch', 'custom_function', 'main'].includes(new_name)) return 'This name is reserved.';
+  if(new_name !== old_name && state.blocks[new_name]) return 'A block with this name already exists.';
   return null;
 }
 
@@ -125,16 +125,16 @@ function group_selection_into_block(){
   const is_inside = node_id => grouped_ids.has(node_id);
   if(!grouped_ids.size) return;
   if([...grouped_ids].some(node_id => ['Input', 'Output'].includes(find_node(graph, node_id).type)))
-    return alert('Input/Output 노드는 블록으로 묶을 수 없어요. 레이어와 연산자만 선택해 주세요.');
+    return alert('Input/Output nodes cannot be grouped. Select only layers and operators.');
   const entering_edges = graph.edges.filter(edge => !is_inside(edge.from) && is_inside(edge.to));
   const leaving_edges = graph.edges.filter(edge => is_inside(edge.from) && !is_inside(edge.to));
   const internal_edges = graph.edges.filter(edge => is_inside(edge.from) && is_inside(edge.to));
   const leaving_source_ids = [...new Set(leaving_edges.map(edge => edge.from))];
-  if(!entering_edges.length) return alert('선택 영역으로 들어오는 연결이 없어요.');
+  if(!entering_edges.length) return alert('Nothing connects into the selection.');
   if(leaving_source_ids.length !== 1)
-    return alert(leaving_source_ids.length ? `선택 영역 밖으로 나가는 출력이 ${leaving_source_ids.length}개예요. 커스텀 블록은 출력 1개만 지원해요.` : '선택 영역에서 밖으로 나가는 연결이 없어요.');
+    return alert(leaving_source_ids.length ? `The selection has ${leaving_source_ids.length} outputs leaving it. A custom block supports exactly one output.` : 'Nothing leaves the selection.');
   if(leaving_edges.some(edge => [...grouped_ids].some(node_id => path_exists(graph, edge.to, node_id))))
-    return alert('선택 영역 밖을 거쳐 다시 들어오는 경로가 있어서 묶을 수 없어요.');
+    return alert('A path leaves the selection and comes back into it, so it cannot be grouped.');
   const outside_source_ids = [...new Set(entering_edges.map(edge => edge.from))].sort((first_id, second_id) => compare_by_position(find_node(graph, first_id), find_node(graph, second_id)));
   let block_number = 1;
   while(state.blocks['Block' + block_number]) block_number++;

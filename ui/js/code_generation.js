@@ -48,7 +48,7 @@ function operator_python_expression(operator_node, input_variable_names, first_i
     case 'Transpose': return `${first_name}.transpose(${params.dim0}, ${params.dim1})`;
     case 'CausalMask': return `${first_name}.masked_fill(torch.ones(${first_input_shape.at(-2)}, ${first_input_shape.at(-1)}, dtype=torch.bool, device=${first_name}.device).triu(1), float("-inf"))`;
   }
-  throw `알 수 없는 연산자 ${operator_node.type}`;
+  throw `Unknown operator ${operator_node.type}`;
 }
 
 /**
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     model = Model()
     print(model)
 
-    # ---- 1) forward: 더미 입력으로 출력 shape 확인
+    # ---- 1) forward: check output shapes with dummy inputs
     inputs = tuple(t.requires_grad_() for t in (${input_tensors},))
     outputs = model(*inputs)
     if not isinstance(outputs, tuple):
@@ -79,7 +79,7 @@ if __name__ == "__main__":
         print(f"  {name}: {tuple(out.shape)} (expected {shape})")
         assert tuple(out.shape) == shape, f"shape mismatch for {name}"
 
-    # ---- 2) backward: 더미 loss로 gradient 흐름 확인
+    # ---- 2) backward: check gradient flow with a dummy loss
     loss = sum(out.float().pow(2).mean() for out in outputs)
     loss.backward()
     print(f"\\n== Backward ==\\n  dummy loss = {loss.item():.6f}")
@@ -123,9 +123,9 @@ function generate_model_code(){
   const generate_module = (class_name, graph, input_shape_overrides, call_stack, block_name) => {
     const {shapes, errors, order} = infer_shapes(graph, input_shape_overrides, call_stack);
     const {input_nodes, output_nodes} = block_ports(graph), location = block_name ? `[${block_name}] ` : '';
-    if(!input_nodes.length) problems.push(location + 'Input 노드가 없습니다.');
-    if(!output_nodes.length) problems.push(location + 'Output 노드가 없습니다.');
-    if(block_name && output_nodes.length > 1) problems.push(location + '블록에는 Output이 1개만 있어야 합니다.');
+    if(!input_nodes.length) problems.push(location + 'There is no Input node.');
+    if(!output_nodes.length) problems.push(location + 'There is no Output node.');
+    if(block_name && output_nodes.length > 1) problems.push(location + 'A block must have exactly one Output.');
     const needed_ids = new Set(), pending_ids = output_nodes.map(node => node.id);
     while(pending_ids.length){
       const node_id = pending_ids.pop();
@@ -136,11 +136,11 @@ function generate_model_code(){
     input_nodes.forEach(node => needed_ids.add(node.id));
     const problem_label = node => node.type === 'Input' || node.type === 'Output' ? `${node.type} '${node.params.name}'`
       : node.type in OPERATOR_SPECS ? OPERATOR_SPECS[node.type].label : node_title(node);
-    for(const node_id of needed_ids) if(errors[node_id] && errors[node_id] !== '상위 노드 오류') problems.push(`${location}${problem_label(find_node(graph, node_id))}: ${errors[node_id]}`);
+    for(const node_id of needed_ids) if(errors[node_id] && errors[node_id] !== UPSTREAM_ERROR) problems.push(`${location}${problem_label(find_node(graph, node_id))}: ${errors[node_id]}`);
     const seen_names = new Set();
     for(const node of [...input_nodes, ...output_nodes]){
       const name_key = node.type + ':' + python_identifier(node.params.name);
-      if(seen_names.has(name_key)) problems.push(`${location}${node.type} 이름 중복: ${node.params.name}`);
+      if(seen_names.has(name_key)) problems.push(`${location}Duplicate ${node.type} name: ${node.params.name}`);
       seen_names.add(name_key);
     }
     if(problems.length) return null;
@@ -186,7 +186,7 @@ function generate_model_code(){
   if(problems.length || !main_module) return {problems: [...new Set(problems)]};
   const uses_math = all_graphs().some(graph => graph.nodes.some(node => node.type === 'Div' && is_valid_divisor_text(node.params.by) && /sqrt/.test(node.params.by)));
   let model_code = `${uses_math ? 'import math\n' : ''}import torch\nimport torch.nn as nn\n\n`;
-  if(uses_custom_function) model_code += '\ndef custom_function(input):\n    # TODO: 사용자 정의 연산을 구현하세요\n    return input\n\n';
+  if(uses_custom_function) model_code += '\ndef custom_function(input):\n    # TODO: implement your custom operation\n    return input\n\n';
   block_classes.forEach(block_module => model_code += '\n' + block_module.code + '\n');
   model_code += '\n' + main_module.code;
   model_code += self_check_python(main_module);
@@ -202,7 +202,7 @@ function render_code_panel(){
     const problem_box = document.createElement('div');
     problem_box.className = 'errbox';
     const heading = document.createElement('b');
-    heading.textContent = 'Export 불가';
+    heading.textContent = 'Cannot export';
     problem_box.appendChild(heading);
     generation_result.problems.forEach(problem_text => { const line = document.createElement('div'); line.textContent = '• ' + problem_text; problem_box.appendChild(line); });
     problem_list.appendChild(problem_box);

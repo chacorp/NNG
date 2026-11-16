@@ -38,7 +38,7 @@ async function run_torch_check(){
   const app_bridge = get_app_bridge(), result_box = document.getElementById('torch_result'), check_button = document.getElementById('torch_check_button');
   if(!app_bridge || !current_model_code) return;
   check_button.disabled = true;
-  check_button.textContent = '검증 중…';
+  check_button.textContent = 'Checking…';
   result_box.style.display = '';
   result_box.className = 'check-run';
   result_box.textContent = '';
@@ -51,7 +51,7 @@ async function run_torch_check(){
     result_box.textContent = String(error);
   }
   check_button.disabled = false;
-  check_button.textContent = 'torch 검증';
+  check_button.textContent = 'Check with torch';
 }
 
 /**

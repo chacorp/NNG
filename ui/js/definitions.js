@@ -10,7 +10,7 @@ const ACTIVATION_FUNCTIONS = ['ReLU', 'GELU', 'SiLU', 'Sigmoid', 'Tanh', 'LeakyR
  * @param {string} layer_name     used in the error message
  */
 function require_chw_shape(input_shape, layer_name){
-  if(input_shape.length !== 3) throw `${layer_name}는 [C,H,W] 입력 필요 (현재 ${format_shape(input_shape)})`;
+  if(input_shape.length !== 3) throw `${layer_name} needs a [C,H,W] input (got ${format_shape(input_shape)})`;
 }
 
 /**
@@ -26,7 +26,7 @@ function require_chw_shape(input_shape, layer_name){
 const LAYER_SPECS = {
   Linear: {
     default_params: {out_features: DEFAULT_HIDDEN_SIZE, bias: true}, consumed_dim: 'last', kind: 'layer',
-    output_shape: (input_shape, params) => { if(!input_shape.length) throw '입력 shape 없음'; return [...input_shape.slice(0, -1), params.out_features]; },
+    output_shape: (input_shape, params) => { if(!input_shape.length) throw 'Input has no shape'; return [...input_shape.slice(0, -1), params.out_features]; },
     torch_code: (params, in_features) => `nn.Linear(${in_features}, ${params.out_features}${params.bias ? '' : ', bias=False'})`,
   },
   Conv2d: {
@@ -35,7 +35,7 @@ const LAYER_SPECS = {
       require_chw_shape(input_shape, 'Conv2d');
       const output_size = size => Math.floor((size + 2 * params.padding - params.kernel_size) / params.stride) + 1;
       const output_height = output_size(input_shape[1]), output_width = output_size(input_shape[2]);
-      if(output_height < 1 || output_width < 1) throw '출력 H/W가 0 이하';
+      if(output_height < 1 || output_width < 1) throw 'Output H/W would be 0 or less';
       return [params.out_channels, output_height, output_width];
     },
     torch_code: (params, in_channels) => `nn.Conv2d(${in_channels}, ${params.out_channels}, kernel_size=${params.kernel_size}, stride=${params.stride}, padding=${params.padding})`,
@@ -45,7 +45,7 @@ const LAYER_SPECS = {
     output_shape: (input_shape, params) => {
       require_chw_shape(input_shape, 'MaxPool2d');
       const output_height = Math.floor(input_shape[1] / params.kernel_size), output_width = Math.floor(input_shape[2] / params.kernel_size);
-      if(output_height < 1 || output_width < 1) throw '출력 H/W가 0 이하';
+      if(output_height < 1 || output_width < 1) throw 'Output H/W would be 0 or less';
       return [input_shape[0], output_height, output_width];
     },
     torch_code: params => `nn.MaxPool2d(${params.kernel_size})`,
@@ -57,7 +57,7 @@ const LAYER_SPECS = {
   },
   LayerNorm: {
     default_params: {}, consumed_dim: 'last', kind: 'norm',
-    output_shape: input_shape => { if(!input_shape.length) throw '입력 shape 없음'; return input_shape; },
+    output_shape: input_shape => { if(!input_shape.length) throw 'Input has no shape'; return input_shape; },
     torch_code: (params, normalized_size) => `nn.LayerNorm(${normalized_size})`,
   },
   Dropout: {
@@ -84,11 +84,11 @@ const LAYER_SPECS = {
     default_params: {num_heads: 8}, consumed_dim: null, kind: 'layer', input_port_names: ['q', 'k', 'v'],
     output_shape: (input_shapes, params) => {
       const [query_shape, key_shape, value_shape] = input_shapes;
-      if(query_shape.length < 2 || key_shape.length < 2 || value_shape.length < 2) throw 'q, k, v는 [.., T, E] 형태 필요';
-      if(!shapes_equal(key_shape.slice(0, -1), value_shape.slice(0, -1))) throw `k, v 길이 불일치 ${format_shape(key_shape)} vs ${format_shape(value_shape)}`;
-      if(!shapes_equal(query_shape.slice(0, -2), key_shape.slice(0, -2))) throw 'q, k 앞쪽 차원 불일치';
+      if(query_shape.length < 2 || key_shape.length < 2 || value_shape.length < 2) throw 'q, k, v must be shaped [.., T, E]';
+      if(!shapes_equal(key_shape.slice(0, -1), value_shape.slice(0, -1))) throw `k and v lengths differ: ${format_shape(key_shape)} vs ${format_shape(value_shape)}`;
+      if(!shapes_equal(query_shape.slice(0, -2), key_shape.slice(0, -2))) throw 'Leading dims of q and k differ';
       const embed_dim = query_shape[query_shape.length - 1];
-      if(embed_dim % params.num_heads) throw `embed_dim ${embed_dim}이 num_heads ${params.num_heads}로 나누어지지 않음`;
+      if(embed_dim % params.num_heads) throw `embed_dim ${embed_dim} is not divisible by num_heads ${params.num_heads}`;
       return query_shape;
     },
     torch_code: (params, input_shapes) => {
@@ -107,11 +107,11 @@ const LAYER_TYPE_NAMES = Object.keys(LAYER_SPECS).filter(type => type !== 'Activ
 
 /** Operator specs (drawn as circles). input_count: fixed number of operands; variadic: two or more. */
 const OPERATOR_SPECS = {
-  Add:        {symbol: '+', label: '더하기 (+)', variadic: true},
-  Sub:        {symbol: '−', label: '빼기 (−)', input_count: 2},
-  Hadamard:   {symbol: '⊙', label: 'Hadamard 곱 (⊙)', variadic: true},
-  MatMul:     {symbol: '×', label: '행렬곱 (×, @)', input_count: 2},
-  Div:        {symbol: '÷', label: '나누기 (÷)', input_count: 2},
+  Add:        {symbol: '+', label: 'Add (+)', variadic: true},
+  Sub:        {symbol: '−', label: 'Subtract (−)', input_count: 2},
+  Hadamard:   {symbol: '⊙', label: 'Hadamard product (⊙)', variadic: true},
+  MatMul:     {symbol: '×', label: 'Matrix multiply (×, @)', input_count: 2},
+  Div:        {symbol: '÷', label: 'Divide (÷)', input_count: 2},
   Concat:     {symbol: '‖', label: 'Concat (‖)', variadic: true},
   CustomFn:   {symbol: 'f', label: 'Custom function (f)', input_count: 1},
   Reshape:    {symbol: 'R', label: 'Reshape', input_count: 1},
@@ -144,11 +144,11 @@ const PARAM_EDITORS = {
   kernel_size: {type: 'int', min: 1}, stride: {type: 'int', min: 1}, padding: {type: 'int', min: 0},
   scale_factor: {type: 'int', min: 1}, output_size: {type: 'int', min: 1}, num_heads: {type: 'int', min: 1},
   p: {type: 'float', min: 0, max: 1}, fn: {type: 'select', options: ACTIVATION_FUNCTIONS}, dim: {type: 'int'},
-  to: {type: 'text', label: 'reshape 크기 (배치 제외, 예: 16,-1)'},
-  order: {type: 'text', label: 'permute 순서 (배치=0 고정, 예: 0,2,1)'},
-  dim0: {type: 'int', label: 'dim0 (배치=0)'}, dim1: {type: 'int', label: 'dim1 (배치=0)'},
-  transpose_b: {type: 'bool', label: '두 번째 입력 전치 (Bᵀ)'},
-  by: {type: 'text', label: '상수로 나누기 (예: sqrt(64))'},
+  to: {type: 'text', label: 'reshape sizes (without batch, e.g. 16,-1)'},
+  order: {type: 'text', label: 'permute order (batch = 0 stays first, e.g. 0,2,1)'},
+  dim0: {type: 'int', label: 'dim0 (batch = 0)'}, dim1: {type: 'int', label: 'dim1 (batch = 0)'},
+  transpose_b: {type: 'bool', label: 'transpose the second input (Bᵀ)'},
+  by: {type: 'text', label: 'divide by a constant (e.g. sqrt(64))'},
 };
 
 /**
