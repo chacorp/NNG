@@ -3,7 +3,7 @@ by vibe coding
 
 I made it to make a detailed network architecture figure for the research paper.
 
-<img src="nng_app/assets/capture.png" alt="drawing"/>
+<img src="nng_app/asset/capture.png" alt="drawing"/>
 
 A desktop app for designing neural-network architectures as node graphs, drawing them cleanly like a paper overview figure, and exporting them as `torch.nn` code.
 
